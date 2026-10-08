@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LunchWheel - What Should I Eat for Lunch?</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        foodie: {
+                            50: '#fff8f0',
+                            100: '#ffeedb',
+                            200: '#ffd8b5',
+                            500: '#ff6b35', // Warm primary orange
+                            600: '#e8501d',
+                            700: '#c43a0e',
+                        },
+                        mint: {
+                            400: '#4ade80',
+                            500: '#22c55e',
+                        },
+                        yolk: {
+                            400: '#facc15',
+                            500: '#eab308',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        
+        .wheel-container {
+            position: relative;
+            width: 100%;
+            max-width: 380px;
+            aspect-ratio: 1;
+            margin: 0 auto;
+        }
+
+        #wheelCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            box-shadow: 0 10px 25px -5px rgba(255, 107, 53, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            transition: transform 4s cubic-bezier(0.15, 0.99, 0.18, 0.99);
+        }
+
+        .wheel-pointer {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 16px solid transparent;
+            border-right: 16px solid transparent;
+            border-top: 28px solid #e8501d;
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+        }
+
+        .slot-machine-container {
+            height: 90px;
+            overflow: hidden;
+            border-radius: 1rem;
+            position: relative;
+            background: #1e293b;
+        }
+
+        .slot-reel {
+            transition: transform 0.1s ease-out;
+        }
+
+        /* Glassmorphism effects */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+        
+        .dark .glass-card {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 9999px;
+        }
+        .dark ::webkit-scrollbar-thumb {
+            background: #475569;
+        }
+    </style>
+</head>
+
+<body class="bg-amber-50/60 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300 selection:bg-foodie-500 selection:text-white">
+
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-amber-200/50 dark:border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 sm:h-20">
+                <!-- App Logo -->
+                <div class="flex items-center gap-3 cursor-pointer" onclick="window.scrollTo({top:0, behavior:'smooth'})">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-foodie-500 to-yolk-400 flex items-center justify-center text-white text-2xl font-black shadow-lg shadow-foodie-500/30 transform hover:rotate-6 transition-transform">
+                        🍱
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-xl tracking-tight text-slate-900 dark:text-white flex items-center gap-1.5">
+                            Lunch<span class="text-foodie-500">Wheel</span>
+                        </span>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 -mt-1 font-semibold">NO-SEAFOOD FRIENDLY PICKER</p>
+                    </div>
+                </div>
+
+                <!-- Right Header Actions -->
+                <div class="flex items-center gap-2 sm:gap-3">
+                    <!-- Seafood Protection Toggle Shield -->
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-100/80 dark:bg-slate-800 border border-amber-300/60 dark:border-slate-700">
+                        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 dark:text-emerald-400"></i>
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300 hidden sm:inline">No Seafood:</span>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="noSeafoodToggle" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                    </div>
+
+                    <!-- Mute / Sound Toggle -->
+                    <button id="soundToggleBtn" title="Toggle Sound Effects" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                        <i data-lucide="volume-2" id="soundIcon" class="w-4 h-4"></i>
+                    </button>
+
+                    <!-- Theme Toggle -->
+                    <button id="themeToggleBtn" title="Toggle Theme" class="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors">
+                        <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
+                        <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
+        
+        <!-- Seafood Exclusion Warning Notice -->
+        <div id="seafoodNoticeBanner" class="mb-6 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-3 text-xs sm:text-sm">
+            <div class="flex items-center gap-2">
+                <i data-lucide="fish-off" class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0"></i>
+                <span><strong>Seafood Safe Mode Enabled:</strong> All fish, shellfish, and seafood options are automatically filtered out from choices.</span>
+            </div>
+            <button onclick="document.getElementById('seafoodNoticeBanner').remove()" class="text-emerald-700 dark:text-emerald-400 hover:text-emerald-900 font-bold">Got it</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+            <div class="lg:col-span-7 space-y-6">
+
+                <!-- Mode Switch Tabs (Wheel vs Slot Machine vs Quick Spin) -->
+                <div class="glass-card rounded-2xl p-2 flex items-center gap-2 shadow-sm border border-slate-200/80 dark:border-slate-800">
+                    <button id="modeWheelBtn" onclick="switchDrawMode('wheel')" class="flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all bg-foodie-500 text-white shadow-md">
+                        <i data-lucide="disc" class="w-4 h-4"></i> Spin Wheel
+                    </button>
+                    <button id="modeSlotBtn" onclick="switchDrawMode('slot')" class="flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                        <i data-lucide="dices" class="w-4 h-4"></i> Slot Roller
+                    </button>
+                    <button id="quickDrawBtn" onclick="quickRandomDraw()" class="py-2.5 px-4 rounded-xl font-bold text-xs sm:text-sm bg-yolk-400 hover:bg-yolk-500 text-slate-900 transition-all flex items-center gap-1.5 shadow-sm active:scale-95 shrink-0">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i> Instant Pick
+                    </button>
+                </div>
+
+                <!-- Randomizer Container Card -->
+                <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-xl text-center relative overflow-hidden">
+                    <div class="absolute -top-24 -right-24 w-48 h-48 bg-foodie-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-yolk-400/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                    <!-- VIEW 1: Spinner Wheel View -->
+                    <div id="wheelModeView" class="space-y-6">
+                        <div class="wheel-container">
+                            <div class="wheel-pointer"></div>
+                            <canvas id="wheelCanvas" width="380" height="380"></canvas>
+                        </div>
+                        <div>
+                            <button id="spinBtn" onclick="spinWheel()" class="w-full sm:w-2/3 py-4 px-8 rounded-2xl bg-gradient-to-r from-foodie-500 to-foodie-600 hover:from-foodie-600 hover:to-foodie-700 text-white font-extrabold text-lg sm:text-xl shadow-lg shadow-foodie-500/30 transform active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto">
+                                <i data-lucide="rotate-cw" class="w-6 h-6 animate-spin-slow"></i> SPIN THE WHEEL!
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- VIEW 2: Slot Machine View -->
+                    <div id="slotModeView" class="hidden space-y-6 py-8">
+                        <div class="slot-machine-container border-4 border-amber-400/30 flex items-center justify-center">
+                            <div id="slotReel" class="slot-reel flex flex-col items-center justify-center transition-all">
+                                <div class="text-2xl sm:text-3xl font-black text-yolk-400 p-4">🎰 Ready to Roll?</div>
+                            </div>
+                        </div>
+                        <button id="rollSlotBtn" onclick="spinSlotMachine()" class="w-full sm:w-2/3 py-4 px-8 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-lg sm:text-xl shadow-lg shadow-purple-500/30 transform active:scale-95 transition-all flex items-center justify-center gap-3 mx-auto">
+                            <i data-lucide="play-circle" class="w-6 h-6"></i> ROLL THE REEL!
+                        </button>
+                    </div>
+                </div>
+
+                <div id="resultCard" class="hidden glass-card rounded-3xl p-6 sm:p-8 border-2 border-foodie-500/40 shadow-2xl animate-fade-in relative">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <span id="resultEmoji" class="text-5xl sm:text-6xl p-3 bg-amber-100 dark:bg-slate-800 rounded-2xl shadow-inner">🍜</span>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span id="resultCategory" class="px-2.5 py-0.5 rounded-full bg-foodie-500/10 text-foodie-600 dark:text-foodie-400 text-xs font-extrabold uppercase">Rice / Noodles</span>
+                                    <span id="resultPrice" class="text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">$$</span>
+                                </div>
+                                <h3 id="resultTitle" class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-1">Chicken Rice</h3>
+                            </div>
+                        </div>
+                        <button onclick="hideResultCard()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <!-- Dietary Tags -->
+                    <div class="mt-4 flex flex-wrap gap-2" id="resultTags">
+                        <!-- Populated by JS -->
+                    </div>
+
+                    <p id="resultDesc" class="mt-3 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        Savory, satisfying, and quick lunch choice packed with protein and comforting flavors!
+                    </p>
+
+                    <!-- Actions & External Search links -->
+                    <div class="mt-6 pt-5 border-t border-slate-200/80 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <a id="mapsBtn" href="#" target="_blank" rel="noopener" class="py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="map-pin" class="w-4 h-4 text-rose-500"></i> Find Nearby
+                        </a>
+                        <a id="deliveryBtn" href="#" target="_blank" rel="noopener" class="py-2.5 px-4 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all">
+                            <i data-lucide="shopping-bag" class="w-4 h-4 text-foodie-500"></i> Delivery Search
+                        </a>
+                        <button onclick="spinWheel()" class="py-2.5 px-4 rounded-xl bg-foodie-500 hover:bg-foodie-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all">
+                            <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Veto / Re-Spin
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                            <i data-lucide="history" class="w-4 h-4 text-foodie-500"></i> Draw History Today
+                        </h3>
+                        <button onclick="clearHistory()" class="text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">Clear</button>
+                    </div>
+                    <div id="historyList" class="flex flex-wrap gap-2">
+                        <span class="text-xs text-slate-400 italic">No draws yet. Spin the wheel to get started!</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="lg:col-span-5 space-y-6">
+
+                <!-- Categories & Filter Options Card -->
+                <div class="glass-card rounded-3xl p-6 shadow-md border border-slate-200/80 dark:border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                            <i data-lucide="filter" class="w-4 h-4 text-foodie-500"></i> Category Filters
+                        </h3>
+                        <button onclick="selectAllCategories(true)" class="text-xs font-bold text-foodie-600 dark:text-foodie-400 hover:underline">Select All</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2" id="categoryFilterContainer">
+                        <!-- Dynamically populated categories -->
+                    </div>
+                </div>
+
+                <!-- Custom Food Dish Manager -->
+                <div class="glass-card rounded-3xl p-6 shadow-md border border-slate-200/80 dark:border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
+                                <i data-lucide="utensils-crossed" class="w-4 h-4 text-foodie-500"></i> Lunch Menu Options
+                            </h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Total: <span id="activeCount" class="font-bold text-foodie-600">0</span> choices active</p>
+                        </div>
+                        <button onclick="openAddModal()" class="px-3 py-1.5 rounded-xl bg-foodie-500 hover:bg-foodie-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all">
+                            <i data-lucide="plus" class="w-4 h-4"></i> Add Dish
+                        </button>
+                    </div>
+
+                    <!-- Search bar in dish list -->
+                    <div class="relative">
+                        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        <input type="text" id="dishSearchInput" oninput="renderDishList()" placeholder="Search options..." class="w-full pl-9 pr-4 py-2 rounded-xl text-xs bg-slate-100 dark:bg-slate-800 border-none text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-foodie-500">
+                    </div>
+
+                    <!-- Dish List Container -->
+                    <div id="dishList" class="max-h-80 overflow-y-auto space-y-2 pr-1">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <div id="dishModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div class="glass-card bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-700 shadow-2xl transform transition-all space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3">
+                <h4 id="modalHeading" class="text-lg font-extrabold text-slate-900 dark:text-white">Add Lunch Choice</h4>
+                <button onclick="closeAddModal()" class="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <form id="dishForm" onsubmit="saveDish(event)" class="space-y-4">
+                <input type="hidden" id="editDishId">
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dish Name</label>
+                    <input type="text" id="dishName" required placeholder="e.g., Teriyaki Chicken Bowl" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-foodie-500">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Emoji Icon</label>
+                        <input type="text" id="dishEmoji" required placeholder="🍱" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-foodie-500 text-center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Estimated Cost</label>
+                        <select id="dishPrice" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-foodie-500">
+                            <option value="$">$ (Budget - Under $10)</option>
+                            <option value="$$" selected>$$ (Moderate - $10-$20)</option>
+                            <option value="$$$">$$$ (Treat Yourself - $20+)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Category</label>
+                    <select id="dishCategory" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-foodie-500">
+                        <option value="Rice & Noodles">Rice & Noodles</option>
+                        <option value="Western">Western</option>
+                        <option value="Fast Food">Fast Food</option>
+                        <option value="Asian">Asian</option>
+                        <option value="Vegetarian">Vegetarian</option>
+                        <option value="Cafe & Bakery">Cafe & Bakery</option>
+                        <option value="Soup & Salad">Soup & Salad</option>
+                        <option value="Seafood">Seafood (Flags Warning)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Dietary Tags (Comma separated)</label>
+                    <input type="text" id="dishTags" placeholder="High Protein, Spicy, Comfort Food" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-foodie-500">
+                </div>
+
+                <div class="flex items-center gap-2 pt-2">
+                    <input type="checkbox" id="dishIsSeafood" class="rounded text-foodie-500 focus:ring-foodie-500 w-4 h-4">
+                    <label for="dishIsSeafood" class="text-xs font-bold text-rose-600 dark:text-rose-400">Flag as Seafood Dish</label>
+                </div>
+
+                <div class="pt-3 flex gap-2">
+                    <button type="button" onclick="closeAddModal()" class="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-xs text-slate-700 dark:text-slate-300">Cancel</button>
+                    <button type="submit" class="flex-1 py-2.5 rounded-xl bg-foodie-500 hover:bg-foodie-600 text-white font-bold text-xs shadow-md">Save Option</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-auto py-6 border-t border-amber-200/40 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+        <p>🍱 LunchWheel Picker &bull; No seafood by default &bull; Make lunchtime decisions effortless!</p>
+    </footer>
+
+    <script>
+        // Default Lunch Dishes Data (Zero Seafood items included by default)
+        const DEFAULT_DISHES = [
+            { id: '1', name: ' Hainanese Chicken Rice', category: 'Rice & Noodles', price: '$', emoji: '🍗', tags: ['High Protein', 'Comfort Food'], isSeafood: false },
+            { id: '2', name: 'Gourmet Beef Burger', category: 'Fast Food', price: '$$', emoji: '🍔', tags: ['Juicy', 'Western'], isSeafood: false },
+            { id: '3', name: 'Creamy Carbonara Pasta', category: 'Western', price: '$$', emoji: '🍝', tags: ['Rich', 'Italian'], isSeafood: false },
+            { id: '4', name: 'Tonkotsu Pork Ramen', category: 'Rice & Noodles', price: '$$', emoji: '🍜', tags: ['Hot Soup', 'Japanese'], isSeafood: false },
+            { id: '5', name: 'Beef Tacos & Nachos', category: 'Fast Food', price: '$', emoji: '🌮', tags: ['Mexican', 'Spicy'], isSeafood: false },
+            { id: '6', name: 'Wood-fired Margherita Pizza', category: 'Western', price: '$$', emoji: '🍕', tags: ['Cheesy', 'Sharing'], isSeafood: false },
+            { id: '7', name: 'Chicken Pad Thai', category: 'Asian', price: '$', emoji: '🍲', tags: ['Thai', 'Noodles'], isSeafood: false },
+            { id: '8', name: 'Grilled Chicken Salad Bowl', category: 'Soup & Salad', price: '$$', emoji: '🥗', tags: ['Healthy', 'Low Carb'], isSeafood: false },
+            { id: '9', name: 'Loaded Beef Burrito', category: 'Fast Food', price: '$', emoji: '🌯', tags: ['Filling', 'Mexican'], isSeafood: false },
+            { id: '10', name: 'Japanese Chicken Curry Rice', category: 'Rice & Noodles', price: '$$', emoji: '🍛', tags: ['Savory', 'Japanese'], isSeafood: false },
+            { id: '11', name: 'Steamed Pork Dumplings / Dim Sum', category: 'Asian', price: '$$', emoji: '🥟', tags: ['Dim Sum', 'Chinese'], isSeafood: false },
+            { id: '12', name: 'Artisan Club Sandwich', category: 'Cafe & Bakery', price: '$', emoji: '🥪', tags: ['Quick Lunch', 'Cafe'], isSeafood: false },
+            { id: '13', name: 'Bibimbap Rice Bowl', category: 'Asian', price: '$$', emoji: '🥣', tags: ['Korean', 'Healthy Options'], isSeafood: false },
+            { id: '14', name: 'Avocado Toast & Poached Egg', category: 'Cafe & Bakery', price: '$$', emoji: '🥑', tags: ['Brunch', 'Vegetarian'], isSeafood: false },
+            { id: '15', name: 'Falafel Hummus Wrap', category: 'Vegetarian', price: '$', emoji: '🥙', tags: ['Vegan', 'Middle Eastern'], isSeafood: false },
+            { id: '16', name: 'Sizzling Ribeye Steak', category: 'Western', price: '$$$', emoji: '🥩', tags: ['Treat Day', 'High Protein'], isSeafood: false },
+            { id: '17', name: 'Pho Beef Noodle Soup', category: 'Soup & Salad', price: '$', emoji: '🍜', tags: ['Vietnamese', 'Warm Soup'], isSeafood: false },
+            { id: '18', name: 'Tofu Mushroom Teriyaki', category: 'Vegetarian', price: '$', emoji: '🍄', tags: ['Vegetarian', 'Japanese'], isSeafood: false }
+        ];
+
+        const CATEGORIES = [
+            'Rice & Noodles', 'Western', 'Fast Food', 'Asian', 
+            'Vegetarian', 'Cafe & Bakery', 'Soup & Salad'
+        ];
+
+        const WHEEL_COLORS = [
+            '#ff6b35', '#facc15', '#4ade80', '#38bdf8', '#a855f7', 
+            '#ec4899', '#f97316', '#10b981', '#6366f1', '#84cc16'
+        ];
+
+        // State variables
+        let dishes = JSON.parse(localStorage.getItem('lunch_dishes')) || DEFAULT_DISHES;
+        let selectedCategories = new Set(CATEGORIES);
+        let excludeSeafood = true;
+        let soundEnabled = true;
+        let currentDrawMode = 'wheel';
+        let drawHistory = [];
+        let currentRotation = 0;
+        let isSpinning = false;
+
+        // Web Audio API for sound effects
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playTickSound() {
+            if (!soundEnabled) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.05);
+            } catch(e){}
+        }
+
+        function playWinFanfare() {
+            if (!soundEnabled) return;
+            try {
+                const notes = [261.63, 329.63, 392.00, 523.25];
+                notes.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime + idx * 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.1 + 0.3);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(audioCtx.currentTime + idx * 0.1);
+                    osc.stop(audioCtx.currentTime + idx * 0.1 + 0.3);
+                });
+            } catch(e){}
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            
+            // Setup Theme Switcher
+            const themeBtn = document.getElementById('themeToggleBtn');
+            themeBtn.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+                drawWheel();
+            });
+
+            // Seafood Toggle Listener
+            const seafoodToggle = document.getElementById('noSeafoodToggle');
+            seafoodToggle.addEventListener('change', (e) => {
+                excludeSeafood = e.target.checked;
+                renderDishList();
+                drawWheel();
+            });
+
+            // Sound Toggle Listener
+            const soundBtn = document.getElementById('soundToggleBtn');
+            soundBtn.addEventListener('click', () => {
+                soundEnabled = !soundEnabled;
+                document.getElementById('soundIcon').setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+                lucide.createIcons();
+            });
+
+            renderCategoryFilters();
+            renderDishList();
+            drawWheel();
+        });
+
+        // Get Filtered Dishes List based on Seafood check and Selected Categories
+        function getFilteredDishes() {
+            return dishes.filter(d => {
+                if (excludeSeafood && d.isSeafood) return false;
+                if (selectedCategories.size > 0 && !selectedCategories.has(d.category)) return false;
+                return true;
+            });
+        }
+
+        function renderCategoryFilters() {
+            const container = document.getElementById('categoryFilterContainer');
+            container.innerHTML = CATEGORIES.map(cat => {
+                const isChecked = selectedCategories.has(cat);
+                return `
+                    <button onclick="toggleCategory('${cat}')" 
+                        class="px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center justify-between ${
+                            isChecked 
+                            ? 'bg-foodie-500/10 border-foodie-500 text-foodie-600 dark:text-foodie-400' 
+                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
+                        }">
+                        <span>${cat}</span>
+                        ${isChecked ? '<i data-lucide="check" class="w-3.5 h-3.5"></i>' : ''}
+                    </button>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function toggleCategory(cat) {
+            if (selectedCategories.has(cat)) {
+                selectedCategories.delete(cat);
+            } else {
+                selectedCategories.add(cat);
+            }
+            renderCategoryFilters();
+            renderDishList();
+            drawWheel();
+        }
+
+        function selectAllCategories(status) {
+            if (status) {
+                selectedCategories = new Set(CATEGORIES);
+            } else {
+                selectedCategories.clear();
+            }
+            renderCategoryFilters();
+            renderDishList();
+            drawWheel();
+        }
+
+        function renderDishList() {
+            const container = document.getElementById('dishList');
+            const searchVal = document.getElementById('dishSearchInput')?.value.toLowerCase() || '';
+            const activeDishes = getFilteredDishes();
+            
+            document.getElementById('activeCount').textContent = activeDishes.length;
+
+            const filteredForDisplay = dishes.filter(d => 
+                d.name.toLowerCase().includes(searchVal) || 
+                d.category.toLowerCase().includes(searchVal)
+            );
+
+            if (filteredForDisplay.length === 0) {
+                container.innerHTML = `<div class="text-center py-6 text-xs text-slate-400">No options found. Add your own!</div>`;
+                return;
+            }
+
+            container.innerHTML = filteredForDisplay.map(d => {
+                const isExcludedSeafood = excludeSeafood && d.isSeafood;
+                const isCategoryDisabled = !selectedCategories.has(d.category);
+                const isDisabled = isExcludedSeafood || isCategoryDisabled;
+
+                return `
+                    <div class="p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2 ${isDisabled ? 'opacity-40 grayscale' : ''}">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <span class="text-lg">${d.emoji}</span>
+                            <div class="truncate">
+                                <div class="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">${d.name} ${d.isSeafood ? '🦐' : ''}</div>
+                                <div class="text-[10px] text-slate-400">${d.category} &bull; ${d.price}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <button onclick="openEditModal('${d.id}')" class="p-1 rounded-lg text-slate-400 hover:text-foodie-500">
+                                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteDish('${d.id}')" class="p-1 rounded-lg text-slate-400 hover:text-rose-500">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function drawWheel() {
+            const canvas = document.getElementById('wheelCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const activeDishes = getFilteredDishes();
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (activeDishes.length === 0) {
+                ctx.fillStyle = '#94a3b8';
+                ctx.font = 'bold 16px Plus Jakarta Sans';
+                ctx.textAlign = 'center';
+                ctx.fillText('No dishes active! Check filters.', canvas.width / 2, canvas.height / 2);
+                return;
+            }
+
+            const total = activeDishes.length;
+            const sliceAngle = (2 * Math.PI) / total;
+            const radius = canvas.width / 2;
+
+            activeDishes.forEach((dish, i) => {
+                const startAngle = i * sliceAngle;
+                const endAngle = (i + 1) * sliceAngle;
+
+                // Slice Arc
+                ctx.beginPath();
+                ctx.moveTo(radius, radius);
+                ctx.arc(radius, radius, radius - 8, startAngle, endAngle);
+                ctx.closePath();
+                ctx.fillStyle = WHEEL_COLORS[i % WHEEL_COLORS.length];
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+
+                // Text & Emoji
+                ctx.save();
+                ctx.translate(radius, radius);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = 'right';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px Plus Jakarta Sans';
+                
+                // Truncate long dish names
+                const maxLen = total > 12 ? 10 : 16;
+                let displayName = dish.name.length > maxLen ? dish.name.slice(0, maxLen) + '..' : dish.name;
+                ctx.fillText(`${dish.emoji} ${displayName}`, radius - 25, 4);
+                ctx.restore();
+            });
+
+            // Center Pin Circle
+            ctx.beginPath();
+            ctx.arc(radius, radius, 28, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#ff6b35';
+            ctx.stroke();
+
+            // Center Emoji
+            ctx.font = '20px serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🍱', radius, radius);
+        }
+
+        function spinWheel() {
+            if (isSpinning) return;
+            const activeDishes = getFilteredDishes();
+            if (activeDishes.length === 0) {
+                alert('Please select at least one active dish category!');
+                return;
+            }
+
+            isSpinning = true;
+            hideResultCard();
+
+            const canvas = document.getElementById('wheelCanvas');
+            const totalSlices = activeDishes.length;
+            const sliceAngle = 360 / totalSlices;
+
+            // Pick random winner index
+            const selectedIdx = Math.floor(Math.random() * totalSlices);
+            
+            // Calculate rotational target (Pointer is at Top = 270 deg)
+            const extraRounds = 5 + Math.floor(Math.random() * 3);
+            const targetSliceCenter = (selectedIdx * sliceAngle) + (sliceAngle / 2);
+            const targetDegree = 270 - targetSliceCenter;
+            
+            const finalRotation = currentRotation + (360 * extraRounds) + (targetDegree - (currentRotation % 360));
+            currentRotation = finalRotation;
+
+            canvas.style.transform = `rotate(${finalRotation}deg)`;
+
+            // Audio ticks interval
+            let ticks = 0;
+            const tickInterval = setInterval(() => {
+                playTickSound();
+                ticks++;
+                if (ticks >= 20) clearInterval(tickInterval);
+            }, 180);
+
+            setTimeout(() => {
+                isSpinning = false;
+                const winner = activeDishes[selectedIdx];
+                showResultCard(winner);
+                playWinFanfare();
+                triggerConfetti();
+            }, 4000);
+        }
+
+        function switchDrawMode(mode) {
+            currentDrawMode = mode;
+            const wheelView = document.getElementById('wheelModeView');
+            const slotView = document.getElementById('slotModeView');
+            const wheelBtn = document.getElementById('modeWheelBtn');
+            const slotBtn = document.getElementById('modeSlotBtn');
+
+            if (mode === 'wheel') {
+                wheelView.classList.remove('hidden');
+                slotView.classList.add('hidden');
+                wheelBtn.className = 'flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all bg-foodie-500 text-white shadow-md';
+                slotBtn.className = 'flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+            } else {
+                wheelView.classList.add('hidden');
+                slotView.classList.remove('hidden');
+                slotBtn.className = 'flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all bg-purple-600 text-white shadow-md';
+                wheelBtn.className = 'flex-1 py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+            }
+        }
+
+        function spinSlotMachine() {
+            if (isSpinning) return;
+            const activeDishes = getFilteredDishes();
+            if (activeDishes.length === 0) return;
+
+            isSpinning = true;
+            hideResultCard();
+
+            const reel = document.getElementById('slotReel');
+            let counter = 0;
+            const totalSteps = 25;
+
+            const interval = setInterval(() => {
+                const randomItem = activeDishes[Math.floor(Math.random() * activeDishes.length)];
+                reel.innerHTML = `
+                    <div class="text-3xl sm:text-4xl font-extrabold text-white flex items-center gap-3">
+                        <span>${randomItem.emoji}</span>
+                        <span>${randomItem.name}</span>
+                    </div>
+                `;
+                playTickSound();
+                counter++;
+
+                if (counter >= totalSteps) {
+                    clearInterval(interval);
+                    isSpinning = false;
+                    const finalWinner = activeDishes[Math.floor(Math.random() * activeDishes.length)];
+                    reel.innerHTML = `
+                        <div class="text-3xl sm:text-4xl font-extrabold text-yolk-400 flex items-center gap-3 animate-bounce">
+                            <span>${finalWinner.emoji}</span>
+                            <span>${finalWinner.name}</span>
+                        </div>
+                    `;
+                    showResultCard(finalWinner);
+                    playWinFanfare();
+                    triggerConfetti();
+                }
+            }, 100);
+        }
+
+        function quickRandomDraw() {
+            const activeDishes = getFilteredDishes();
+            if (activeDishes.length === 0) return;
+            const randomDish = activeDishes[Math.floor(Math.random() * activeDishes.length)];
+            showResultCard(randomDish);
+            playWinFanfare();
+            triggerConfetti();
+        }
+
+        function showResultCard(dish) {
+            document.getElementById('resultEmoji').textContent = dish.emoji;
+            document.getElementById('resultTitle').textContent = dish.name;
+            document.getElementById('resultCategory').textContent = dish.category;
+            document.getElementById('resultPrice').textContent = dish.price;
+
+            // Render tags
+            const tagsContainer = document.getElementById('resultTags');
+            tagsContainer.innerHTML = (dish.tags || ['Tasty Choice']).map(tag => 
+                `<span class="px-2.5 py-1 rounded-lg bg-amber-100 dark:bg-slate-800 text-amber-800 dark:text-amber-300 text-xs font-bold">${tag}</span>`
+            ).join('');
+
+            // Search URLs
+            const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(dish.name + ' lunch near me')}`;
+            const deliveryUrl = `https://www.google.com/search?q=${encodeURIComponent(dish.name + ' food delivery near me')}`;
+
+            document.getElementById('mapsBtn').href = mapsUrl;
+            document.getElementById('deliveryBtn').href = deliveryUrl;
+
+            const card = document.getElementById('resultCard');
+            card.classList.remove('hidden');
+            card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Add to session history
+            addToHistory(dish);
+        }
+
+        function hideResultCard() {
+            document.getElementById('resultCard').classList.add('hidden');
+        }
+
+        // History Tracker
+        function addToHistory(dish) {
+            drawHistory.unshift(dish);
+            const container = document.getElementById('historyList');
+            container.innerHTML = drawHistory.map(d => `
+                <span class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 shadow-sm">
+                    <span>${d.emoji}</span> ${d.name}
+                </span>
+            `).join('');
+        }
+
+        function clearHistory() {
+            drawHistory = [];
+            document.getElementById('historyList').innerHTML = `<span class="text-xs text-slate-400 italic">No draws yet. Spin the wheel to get started!</span>`;
+        }
+
+        // Confetti Burst Trigger
+        function triggerConfetti() {
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 80,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            }
+        }
+
+        function openAddModal() {
+            document.getElementById('editDishId').value = '';
+            document.getElementById('dishHeading') ? document.getElementById('dishHeading').textContent = 'Add Lunch Choice' : null;
+            document.getElementById('dishForm').reset();
+            document.getElementById('dishModal').classList.remove('hidden');
+            document.getElementById('dishModal').classList.add('flex');
+        }
+
+        function openEditModal(id) {
+            const dish = dishes.find(d => d.id === id);
+            if (!dish) return;
+
+            document.getElementById('editDishId').value = dish.id;
+            document.getElementById('dishName').value = dish.name;
+            document.getElementById('dishEmoji').value = dish.emoji;
+            document.getElementById('dishPrice').value = dish.price;
+            document.getElementById('dishCategory').value = dish.category;
+            document.getElementById('dishTags').value = (dish.tags || []).join(', ');
+            document.getElementById('dishIsSeafood').checked = dish.isSeafood;
+
+            document.getElementById('dishModal').classList.remove('hidden');
+            document.getElementById('dishModal').classList.add('flex');
+        }
+
+        function closeAddModal() {
+            document.getElementById('dishModal').classList.add('hidden');
+            document.getElementById('dishModal').classList.remove('flex');
+        }
+
+        function saveDish(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editDishId').value;
+            const name = document.getElementById('dishName').value.trim();
+            const emoji = document.getElementById('dishEmoji').value.trim() || '🍱';
+            const price = document.getElementById('dishPrice').value;
+            const category = document.getElementById('dishCategory').value;
+            const tags = document.getElementById('dishTags').value.split(',').map(t => t.trim()).filter(Boolean);
+            const isSeafood = document.getElementById('dishIsSeafood').checked;
+
+            if (editId) {
+                // Edit existing
+                dishes = dishes.map(d => d.id === editId ? { ...d, name, emoji, price, category, tags, isSeafood } : d);
+            } else {
+                // Add new
+                const newDish = {
+                    id: Date.now().toString(),
+                    name,
+                    emoji,
+                    price,
+                    category,
+                    tags,
+                    isSeafood
+                };
+                dishes.push(newDish);
+            }
+
+            localStorage.setItem('lunch_dishes', JSON.stringify(dishes));
+            closeAddModal();
+            renderDishList();
+            drawWheel();
+        }
+
+        function deleteDish(id) {
+            if (confirm('Are you sure you want to remove this dish option?')) {
+                dishes = dishes.filter(d => d.id !== id);
+                localStorage.setItem('lunch_dishes', JSON.stringify(dishes));
+                renderDishList();
+                drawWheel();
+            }
+        }
+    </script>
+</body>
+</html>
